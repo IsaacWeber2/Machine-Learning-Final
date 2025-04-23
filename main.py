@@ -134,6 +134,77 @@ print(f"Test Accuracy: {accuracy_score(y_test, y_pred):.4f}")
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
 
+
+
+
+
+
+# implementing dimensionality reduction here to see what it would do in regards to training the model
+print("\n=== Evaluating KNN with PCA-Reduced Features ===")
+pca_model = PCA(n_components=2)
+X_train_pca = pca_model.fit_transform(X_train_selected)
+X_test_pca = pca_model.transform(X_test_selected)
+
+pipeline_pca = Pipeline([
+    ('scaler', StandardScaler()),
+    ('knn', KNeighborsClassifier())
+])
+
+param_grid_pca = {
+    'knn__n_neighbors': [3, 5, 7, 9],
+    'knn__weights': ['uniform', 'distance'],
+    'knn__metric': ['euclidean', 'manhattan']
+}
+
+grid_pca = GridSearchCV(pipeline_pca, param_grid_pca, cv=cv, scoring='accuracy', n_jobs=-1)
+grid_pca.fit(X_train_pca, y_train)
+best_pca_model = grid_pca.best_estimator_
+y_pred_pca = best_pca_model.predict(X_test_pca)
+
+print("Best PCA Parameters:", grid_pca.best_params_)
+print(f"PCA Test Accuracy: {accuracy_score(y_test, y_pred_pca):.4f}")
+print("PCA Classification Report:")
+print(classification_report(y_test, y_pred_pca, target_names=label_encoder.classes_))
+
+
+
+
+# this is the LDA part
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+
+print("\n=== Evaluating KNN with LDA-Reduced Features ===")
+lda_components = min(len(np.unique(y_train)) - 1, X_train_selected.shape[1])
+lda_model = LinearDiscriminantAnalysis(n_components=lda_components)
+
+X_train_lda = lda_model.fit_transform(X_train_selected, y_train)
+X_test_lda = lda_model.transform(X_test_selected)
+
+pipeline_lda = Pipeline([
+    ('scaler', StandardScaler()),
+    ('knn', KNeighborsClassifier())
+])
+
+param_grid_lda = {
+    'knn__n_neighbors': [3, 5, 7, 9],
+    'knn__weights': ['uniform', 'distance'],
+    'knn__metric': ['euclidean', 'manhattan']
+}
+
+grid_lda = GridSearchCV(pipeline_lda, param_grid_lda, cv=cv, scoring='accuracy', n_jobs=-1)
+grid_lda.fit(X_train_lda, y_train)
+best_lda_model = grid_lda.best_estimator_
+y_pred_lda = best_lda_model.predict(X_test_lda)
+
+print("Best LDA Parameters:", grid_lda.best_params_)
+print(f"LDA Test Accuracy: {accuracy_score(y_test, y_pred_lda):.4f}")
+print("LDA Classification Report:")
+print(classification_report(y_test, y_pred_lda, target_names=label_encoder.classes_))
+
+
+
+
+
+
 # Confusion matrix
 conf_mat = confusion_matrix(y_test, y_pred)
 plt.figure(figsize=(8, 6))
