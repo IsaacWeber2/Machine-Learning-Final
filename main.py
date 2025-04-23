@@ -2,16 +2,33 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score, confusion_matrix
-from sklearn.metrics import silhouette_score, calinski_harabasz_score, davies_bouldin_score
-from sklearn.metrics import rand_score, adjusted_rand_score, mutual_info_score, normalized_mutual_info_score
+from sklearn.metrics import (accuracy_score, confusion_matrix, classification_report,
+                            silhouette_score, calinski_harabasz_score, davies_bouldin_score,
+                            rand_score, adjusted_rand_score, mutual_info_score, 
+                            normalized_mutual_info_score)
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_selection import SelectKBest, mutual_info_classif
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import GridSearchCV, StratifiedKFold, cross_val_score
+from sklearn.decomposition import PCA
+
 
 # Loading data and extracting each type
 data = pd.read_csv('dataset.csv')
 data = data.set_index('Unnamed: 0')
+
+# Visualization 1: Heatmap of original data 
+plt.figure(figsize=(12, 10))
+sns.heatmap(data.iloc[:, :100].corr(), cmap='coolwarm') # only did 100 here but will change soon
+plt.title('Original Data Correlation Heatmap ')
+plt.savefig('original_heatmap.png', bbox_inches='tight')
+plt.close()
+
+
+
 cancer_types = []
 for idx in data.index:
     cancer_type = ''.join([c for c in idx if c.isalpha()]).lower()
@@ -66,16 +83,166 @@ X_test_selected = mi_selector.transform(X_test_var)
 print(f"Number of features after variance selection: {features}")
 print(f"Number of features after mutual information selection: {features2}")
 
-# Scale the selected features
-scaler = StandardScaler()
-X_train_scaled = scaler.fit_transform(X_train_selected)
-X_test_scaled = scaler.transform(X_test_selected)
+# Visualization 2: Heatmap of selected features
+plt.figure(figsize=(12, 10))
+selected_df = pd.DataFrame(X_train_selected, 
+                         columns=[f"MI_{i}" for i in range(X_train_selected.shape[1])])
+sns.heatmap(selected_df.iloc[:, :100].corr(), cmap='coolwarm')
+plt.title('Selected Features Correlation Heatmap (First 100 Features)')
+plt.savefig('selected_heatmap.png', bbox_inches='tight')
+plt.close()
 
+# using pipeline for scaling and knn
+pipeline = Pipeline([
+    ('scaler', StandardScaler()),
+    ('knn', KNeighborsClassifier())
+])
+# parameter grid for GridSearchCV
+param_grid = {
+    'knn__n_neighbors': [3, 5, 7, 9, 11, 15],
+    'knn__weights': ['uniform', 'distance'],
+    'knn__metric': ['euclidean', 'manhattan', 'minkowski'],
+    'knn__p': [1, 2]  # in case for minkowski metric
+}
 
-knn = KNeighborsClassifier(n_neighbors=5)
-knn.fit(X_train_scaled, y_train)
-y_pred = knn.predict(X_test_scaled)
+# Stratified K-Fold cross-validation
+cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
+# Grid Search with cross-validation
+grid_sea = GridSearchCV(
+    estimator=pipeline,
+    param_grid=param_grid,
+    cv=cv,
+    scoring='accuracy',
+    n_jobs=-1,
+    verbose=1
+)
+
+grid_sea.fit(X_train_selected, y_train)
+print("\nBest parameters found:")
+# evaluating the best parameters
+best_model = grid_sea.best_estimator_
+y_pred = best_model.predict(X_test_selected)
+
+# Evaluation metrics
+print("\n=== Best Model Evaluation ===")
+print("Best Parameters:", grid_sea.best_params_)
+print(f"Best Cross-Validation Accuracy: {grid_sea.best_score_:.4f}")
+print(f"Test Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+
+# Classification report
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
+
+# Confusion matrix
+conf_mat = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(8, 6))
+sns.heatmap(conf_mat, annot=True, fmt='d', cmap='Blues',
+            xticklabels=label_encoder.classes_,
+            yticklabels=label_encoder.classes_)
+plt.title('Confusion Matrix')
+plt.ylabel('True Label')
+plt.xlabel('Predicted Label')
+plt.savefig('confusion_matrix.png', bbox_inches='tight')
+plt.close()
+
+# Class-wise accuracy
+print("\nClass-wise Accuracy:")
+cm = confusion_matrix(y_test, y_pred)
+for i, cancer in enumerate(label_encoder.classes_):
+    class_total = sum(y_test == i)
+    class_correct = cm[i, i]
+    class_accuracy = (class_correct / class_total) * 100
+    print(f"{cancer.upper()}: {class_accuracy:.2f}%")
+
+# Cross-validation scores for best model
+print("\nCross-validation scores for best model:")
+cv_scores = cross_val_score(best_model, X_train_selected, y_train, cv=cv)
+print(f"Scores: {cv_scores}")
+print(f"Mean: {cv_scores.mean():.4f}")
+print(f"Standard Deviation: {cv_scores.std():.4f}")
+
+# Visualization 3: Accuracy vs k values
+results = pd.DataFrame(grid_sea.cv_results_)
+k_values = results['param_knn__n_neighbors'].unique()
+k_values.sort()
+plt.figure(figsize=(10, 6))
+for metric in ['euclidean', 'manhattan']:
+    subset = results[results['param_knn__metric'] == metric]
+    plt.plot(subset['param_knn__n_neighbors'], 
+             subset['mean_test_score'],
+             marker='o',
+             label=f"{metric} distance")
+
+plt.title('KNN Performance by Number of Neighbors')
+plt.xlabel('Number of Neighbors (k)')
+plt.ylabel('Mean CV Accuracy')
+plt.legend()
+plt.grid(True)
+plt.savefig('knn_performance.png', bbox_inches='tight')
+plt.close()
+
+# Clustering evaluation
+print("\n=== Clustering Evaluation ===")
+kmeans = KMeans(n_clusters=3, random_state=42)
+cluster_labels = kmeans.fit_predict(X_test_selected)
+
+metrics = {
+    'Silhouette': silhouette_score(X_test_selected, cluster_labels),
+    'CH': calinski_harabasz_score(X_test_selected, cluster_labels),
+    'DBI': davies_bouldin_score(X_test_selected, cluster_labels),
+    'RI': rand_score(y_test, cluster_labels),
+    'ARI': adjusted_rand_score(y_test, cluster_labels),
+    'MI': mutual_info_score(y_test, cluster_labels),
+    'NMI': normalized_mutual_info_score(y_test, cluster_labels)
+}
+
+print("\nClustering Metrics:")
+for metric_name, metric_value in metrics.items():
+    print(f"{metric_name}: {metric_value:.4f}")
+
+# Visualization 4: PCA comparison before/after feature selection
+pca = PCA(n_components=2)
+
+# Original data PCA
+X_pca_original = pca.fit_transform(StandardScaler().fit_transform(X_train_full))
+# Selected data PCA
+X_pca_selected = pca.fit_transform(StandardScaler().fit_transform(X_train_selected))
+
+plt.figure(figsize=(15, 6))
+plt.subplot(1, 2, 1)
+sns.scatterplot(x=X_pca_original[:, 0], y=X_pca_original[:, 1], hue=y_train)
+plt.title(f'Original Data PCA\n({X_train_full.shape[1]} features)')
+
+plt.subplot(1, 2, 2)
+sns.scatterplot(x=X_pca_selected[:, 0], y=X_pca_selected[:, 1], hue=y_train)
+plt.title(f'Selected Features PCA\n({X_train_selected.shape[1]} features)')
+
+plt.tight_layout()
+plt.savefig('pca_comparison.png', bbox_inches='tight')
+plt.close()
+
+# Visualization 5: Clustering results
+plt.figure(figsize=(12, 5))
+plt.subplot(1, 2, 1)
+sns.scatterplot(x=X_pca_selected[:, 0], y=X_pca_selected[:, 1], hue=y_test)
+plt.title('True Cancer Type Distribution')
+
+plt.subplot(1, 2, 2)
+sns.scatterplot(x=X_pca_selected[:, 0], y=X_pca_selected[:, 1], hue=cluster_labels)
+plt.title('KMeans Cluster Assignment')
+
+plt.tight_layout()
+plt.savefig('clustering_results.png', bbox_inches='tight')
+plt.close()
+
+print("\nAll visualizations saved as PNG files:")
+print("- original_heatmap.png")
+print("- selected_heatmap.png")
+print("- confusion_matrix.png")
+print("- knn_performance.png")
+print("- pca_comparison.png")
+print("- clustering_results.png")
 # percent correct
 accuracy = accuracy_score(y_test, y_pred)
 print(f"Overall KNN Accuracy: {accuracy * 100:.2f}%")
