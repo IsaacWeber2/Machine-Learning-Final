@@ -8,7 +8,7 @@ from sklearn.metrics import rand_score, adjusted_rand_score, mutual_info_score, 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_selection import mutual_info_classif, SelectKBest
-
+from sklearn.feature_selection import f_classif, SelectKBest
 
 data = pd.read_csv('dataset.csv')
 data = data.set_index('Unnamed: 0')
@@ -37,22 +37,32 @@ X_test_full = data.loc[test_indices]
 y_train = encoded_labels[np.isin(data.index, train_indices)]
 y_test = encoded_labels[np.isin(data.index, test_indices)]
 
-#top features based on variance
-features = 4800  # Number of features to select based on variance
-
-variances = data.var()
-top_variance_features = variances.nlargest(features).index
-X_train_var = X_train_full[top_variance_features]
+#First using varaince
+features = 4800  # Features that varience outputs
+variances = data.var() # calculate variance for each feature
+top_variance_features = variances.nlargest(features).index #Selects the top features
+X_train_var = X_train_full[top_variance_features] # Filter training and testing data
 X_test_var = X_test_full[top_variance_features]
 
+#using ANOVA F-test 
+# This test focuses on differences between groups
+# Shuld work very well for k nearest
+#Scored based on ability to seperate classes
+features_anova = 1500  # features choses
+anova_selector = SelectKBest(f_classif, k=features_anova) #Sort through
+X_train_anova = anova_selector.fit_transform(X_train_var, y_train) #Filter for Training and testing
+X_test_anova = anova_selector.transform(X_test_var)
+
 #using mutual information to select features
+# Focuses on scoring features based on them being similar to another
 features2 = 900  # Number of features to select based on mutual information
 mi_selector = SelectKBest(mutual_info_classif, k=features2)
-X_train_selected = mi_selector.fit_transform(X_train_var, y_train)
-X_test_selected = mi_selector.transform(X_test_var)
+X_train_selected = mi_selector.fit_transform(X_train_anova, y_train)
+X_test_selected = mi_selector.transform(X_test_anova)
 
-#printing both features used 
+#printing features used at each step
 print(f"Number of features after variance selection: {features}")
+print(f"Number of features after ANOVA selection: {features_anova}")
 print(f"Number of features after mutual information selection: {features2}")
 
 
