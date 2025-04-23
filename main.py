@@ -74,7 +74,7 @@ X_train_var = X_train_full[top_variance_features]
 X_test_var = X_test_full[top_variance_features]
 
 #using mutail information to select features
-features2 = 900  # Number of features to select based on mutual information
+features2 = 100  # Number of features to select based on mutual information
 mi_selector = SelectKBest(mutual_info_classif, k=features2)
 X_train_selected = mi_selector.fit_transform(X_train_var, y_train)
 X_test_selected = mi_selector.transform(X_test_var)
