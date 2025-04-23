@@ -104,6 +104,41 @@ plt.title('Selected Features Correlation Heatmap (First 100 Features)')
 plt.savefig('selected_heatmap.png', bbox_inches='tight')
 plt.close()
 
+
+# Perform dimensionality reduction with PCA on the original data and selected data
+pca = PCA(n_components=2)
+X_train_pca = pca.fit_transform(X_train_full)
+X_test_pca = pca.transform(X_test_full)
+
+X_train_scaled_pca = pca.fit_transform(X_train_selected)
+X_test_scaled_pca = pca.transform(X_test_selected)
+
+fig, axes = plt.subplots(1, 2, figsize=(18, 8))
+
+# Create a subplot showing results without feature selection
+for label in np.unique(y_train):
+    axes[0].scatter(X_train_pca[y_train == label, 0], X_train_pca[y_train == label, 1],
+        label=f"Class {label}", edgecolor='k', alpha=0.7)
+axes[0].set_title('PCA without feature selection')
+axes[0].set_xlabel("Component #1")
+axes[0].set_ylabel("Component #2")
+axes[0].grid(True)
+axes[0].legend()
+
+# Create a subplot showing results with feature selection
+for label in np.unique(y_train):
+    axes[1].scatter(X_train_scaled_pca[y_train == label, 0], X_train_scaled_pca[y_train == label, 1],
+        label=f"Class {label}", edgecolor='k', alpha=0.7)
+axes[1].set_title('PCA with feature selection')
+axes[1].set_xlabel("Component #1")
+axes[1].set_ylabel("Component #2")
+axes[1].grid(True)
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+
+
 # using pipeline for scaling and knn
 pipeline = Pipeline([
     ('scaler', StandardScaler()),
