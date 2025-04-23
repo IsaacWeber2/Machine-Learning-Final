@@ -11,21 +11,17 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.model_selection import train_test_split, StratifiedKFold, GridSearchCV
 from sklearn.metrics import (accuracy_score, classification_report, confusion_matrix)
 
-# Load dataset
 data = pd.read_csv("dataset.csv")
 data = data.rename(columns={"Unnamed: 0": "sample_id"})
 data.set_index("sample_id", inplace=True)
 
-# Extract cancer type from index
 cancer_labels = data.index.to_series().str.extract(r'([a-zA-Z]+)')[0].str.lower()
 encoder = LabelEncoder()
 y = encoder.fit_transform(cancer_labels)
 
-# Feature preprocessing
 X = data.copy()
-X = X.loc[:, X.nunique() > 1]  # Remove constant features
+X = X.loc[:, X.nunique() > 1] 
 
-# Train/Test split (balanced)
 sample_counts = cancer_labels.value_counts()
 min_class_size = sample_counts.min()
 
@@ -38,18 +34,15 @@ for label in sample_counts.index:
 X_train, X_test = X.loc[train_idx], X.loc[test_idx]
 y_train, y_test = y[np.isin(data.index, train_idx)], y[np.isin(data.index, test_idx)]
 
-# Feature scaling
 scaler = StandardScaler()
 X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
-# Feature selection
 top_k_features = 10
 mi_selector = SelectKBest(score_func=mutual_info_classif, k=top_k_features)
 X_train_fs = mi_selector.fit_transform(X_train_scaled, y_train)
 X_test_fs = mi_selector.transform(X_test_scaled)
 
-# Dimensionality reduction
 pca = PCA(n_components=2)
 lda = LDA(n_components=2)
 
@@ -59,7 +52,6 @@ X_test_pca = pca.transform(X_test_fs)
 X_train_lda = lda.fit_transform(X_train_fs, y_train)
 X_test_lda = lda.transform(X_test_fs)
 
-# Function to plot dimensionality reduction
 def plot_projection(X_proj, y_labels, title, filename):
     plt.figure(figsize=(8, 6))
     for label in np.unique(y_labels):
@@ -79,7 +71,6 @@ def plot_projection(X_proj, y_labels, title, filename):
 plot_projection(X_train_pca, y_train, "PCA Projection (Train)", "pca_scatter.png")
 plot_projection(X_train_lda, y_train, "LDA Projection (Train)", "lda_scatter.png")
 
-# Model training and evaluation
 def evaluate_knn(X_tr, X_te, y_tr, y_te, desc):
     knn = KNeighborsClassifier()
     params = {
