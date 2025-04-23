@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.manifold import TSNE
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix
@@ -10,6 +11,7 @@ from sklearn.metrics import rand_score, adjusted_rand_score, mutual_info_score, 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
+from umap import UMAP
 
 # Function for plotting dimensionality reduction results
 def plot_dr(X, y, title):
@@ -73,7 +75,6 @@ X_train_scaled = scaler.fit_transform(X_train)
 X_test_scaled = scaler.transform(X_test)
 
 # K-Neighbors Classification without dimensionality reduction
-print("Performing 3 cases of KNN classification: no dimensionality reduction, PCA, and LDA...")
 knn = KNeighborsClassifier(n_neighbors=5)
 knn.fit(X_train_scaled, y_train)
 y_pred = knn.predict(X_test_scaled)
@@ -87,22 +88,34 @@ knn.fit(X_train_pca, y_train)
 y_pred_pca = knn.predict(X_test_pca)
 
 # K-Neighbors Classification with LDA
-lda = LinearDiscriminantAnalysis(n_components=2)
-X_train_lda = lda.fit_transform(X_train_scaled, y_train)
-X_test_lda = lda.transform(X_test_scaled)
+# lda = LinearDiscriminantAnalysis(n_components=2)
+# X_train_lda = lda.fit_transform(X_train_scaled, y_train)
+# X_test_lda = lda.transform(X_test_scaled)
 
-knn.fit(X_train_lda, y_train)
-y_pred_lda = knn.predict(X_test_lda)
+# knn.fit(X_train_lda, y_train)
+# y_pred_lda = knn.predict(X_test_lda)
+
+# K-Neighbors Classification with UMAP
+# umap = UMAP(n_components=2)
+# X_train_umap = umap.fit_transform(X_train_scaled, y_train)
+# X_test_umap = umap.transform(X_test_scaled)
+
+# knn.fit(X_train_umap, y_train)
+# y_pred_umap = knn.predict(X_test_umap)
 
 # Data visualization for dimensionality reduction
 plot_dr(X_train_pca, y_train, "Dimensionality Reduction using PCA")
-plot_dr(X_train_lda, y_train, "Dimensionality Reduction using LDA")
+# plot_dr(X_train_lda, y_train, "Dimensionality Reduction using LDA")
+# plot_dr(X_train_umap, y_train, "Dimensionality Reduction using UMAP")
 
 # Print accuracy
 print("Printing accuracy...")
 accuracy = accuracy_score(y_test, y_pred)
 accuracy_pca = accuracy_score(y_test, y_pred_pca)
-accuracy_lda = accuracy_score(y_test, y_pred_lda)
+# accuracy_lda = accuracy_score(y_test, y_pred_lda)
+# accuracy_umap = accuracy_score(y_test, y_pred_umap)
 print(f"KNN Accuracy without dimensionality reduction: {accuracy * 100:.2f}%")
 print(f"KNN Accuracy with PCA: {accuracy_pca * 100:.2f}%")
-print(f"KNN Accuracy with LDA: {accuracy_lda * 100:.2f}%")
+# print(f"KNN Accuracy with LDA: {accuracy_lda * 100:.2f}%")
+# print(f"KNN Accuracy with UMAP: {accuracy_umap * 100:.2f}%")
+
